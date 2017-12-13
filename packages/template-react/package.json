@@ -4,6 +4,16 @@
   "main": "src/app.js",
   "license": "MIT",
   "hops": {
+    "browsers": [
+      "last 1 Chrome versions"
+    ],
+    "node": "6.10.3",
+    "basePath": "base",
+    "assetPath": "assets",
+    "_aws": {
+      "region": "eu-central-1",
+      "memorySize": 1024
+    },
     "locations": [
       "/",
       "/counter"
@@ -17,6 +27,7 @@
   },
   "dependencies": {
     "hops": "^11.8.5",
+    "hops-lambda": "11.8.5",
     "hops-postcss": "^11.8.5",
     "prop-types": "^15.6.2",
     "react": "^16.4.2",
