@@ -8,6 +8,7 @@ const {
 
 const { ApolloProvider } = require('react-apollo');
 const { default: ApolloClient } = require('apollo-client');
+const { ApolloLink } = require('apollo-link');
 const { HttpLink } = require('apollo-link-http');
 const {
   InMemoryCache,
@@ -15,6 +16,32 @@ const {
   HeuristicFragmentMatcher,
 } = require('apollo-cache-inmemory');
 require('cross-fetch/polyfill');
+
+const errorLink = new ApolloLink((operation, forward) =>
+  forward(operation).map(response => {
+    console.log('response', response);
+    console.log('context', operation.getContext());
+
+    return response;
+  })
+);
+
+const customFetch = () => async (uri, options) => {
+  const response = await global.fetch(uri, options);
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!contentType.startsWith('application/json')) {
+    throw new Error(`
+
+Invalid response from ${uri}.
+
+Make sure to apply a valid GraphQL API endpoint to the
+"graphqlUri"-value of your Hops configuration.
+`);
+  }
+
+  return response;
+};
 
 class GraphQLMixin extends Mixin {
   constructor(config, element, { graphql: options = {} } = {}) {
@@ -45,10 +72,12 @@ class GraphQLMixin extends Mixin {
   getApolloLink() {
     return (
       this.options.link ||
-      new HttpLink({
-        uri: this.config.graphqlUri,
-        fetch: global.fetch,
-      })
+      errorLink.concat(
+        new HttpLink({
+          uri: this.config.graphqlUri,
+          fetch: customFetch(),
+        })
+      )
     );
   }
 

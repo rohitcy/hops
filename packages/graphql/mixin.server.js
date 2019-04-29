@@ -9,6 +9,7 @@ const {
 
 const { ApolloProvider, getDataFromTree } = require('react-apollo');
 const { default: ApolloClient } = require('apollo-client');
+const { ApolloLink } = require('apollo-link');
 const { HttpLink } = require('apollo-link-http');
 const {
   InMemoryCache,
@@ -16,6 +17,32 @@ const {
   HeuristicFragmentMatcher,
 } = require('apollo-cache-inmemory');
 const fetch = require('cross-fetch');
+
+const errorLink = new ApolloLink((operation, forward) =>
+  forward(operation).map(response => {
+    console.log('response', response);
+    console.log('context', operation.getContext());
+
+    return response;
+  })
+);
+
+const customFetch = () => async (uri, options) => {
+  const response = await fetch(uri, options);
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!contentType.startsWith('application/json')) {
+    throw new Error(`
+
+Invalid response from ${uri}.
+
+Make sure to apply a valid GraphQL API endpoint to the
+"graphqlUri"-value of your Hops configuration.
+`);
+  }
+
+  return response;
+};
 
 let introspectionResult = undefined;
 
@@ -60,10 +87,12 @@ class GraphQLMixin extends Mixin {
   getApolloLink() {
     return (
       this.options.link ||
-      new HttpLink({
-        uri: this.config.graphqlUri,
-        fetch,
-      })
+      errorLink.concat(
+        new HttpLink({
+          uri: this.config.graphqlUri,
+          fetch: customFetch(),
+        })
+      )
     );
   }
 
