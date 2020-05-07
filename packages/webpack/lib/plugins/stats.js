@@ -1,3 +1,4 @@
+const { join } = require('path');
 const { RawSource } = require('webpack-sources');
 const { trimTrailingSlash } = require('pathifist');
 
@@ -46,7 +47,7 @@ const extractFiles = (chunkData, rawPublicPath) => {
 };
 
 exports.StatsPlugin = class StatsPlugin {
-  constructor(enhancedPromise) {
+  constructor(enhancedPromise, { statsFile, serverDir }) {
     this.apply = (compiler) => {
       compiler.hooks.compilation.tap('StatsPlugin', (compilation) => {
         compilation.hooks.additionalAssets.tap('StatsPlugin', () => {
@@ -56,20 +57,21 @@ exports.StatsPlugin = class StatsPlugin {
             return;
           }
 
-          try {
-            enhancedPromise.resolve({
+          const stats = extractFiles(
+            analyzeCompilation(compilation),
+            publicPath
+          );
+
+          compilation.assets[join(serverDir, statsFile)] = new RawSource(
+            JSON.stringify({
               ...compilation
                 .getStats()
                 .toJson({ all: false, assets: true, entrypoints: true }),
-              ...extractFiles(analyzeCompilation(compilation), publicPath),
-            });
-          } catch (error) {
-            enhancedPromise.reject(error);
-          }
+              ...stats,
+            })
+          );
         });
       });
-
-      compiler.hooks.watchRun.tap('StatsPlugin', () => enhancedPromise.reset());
     };
   }
 };

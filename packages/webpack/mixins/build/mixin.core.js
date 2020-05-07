@@ -1,6 +1,7 @@
 const debug = require('debug')('hops:webpack:stats');
 const { sync, async } = require('mixinable');
 const { Mixin, internal: bootstrap } = require('hops-bootstrap');
+const { createChildCompiler } = require('./compiler');
 
 const { sequence } = sync;
 const { callable } = async;
@@ -24,33 +25,17 @@ class WebpackBuildMixin extends Mixin {
   }
 
   build() {
-    const webpack = require('webpack');
-    const webpackConfigs = [];
-    this.collectBuildConfigs(webpackConfigs);
+    const { options, config } = this;
+    const { _overrides: overrides } = config;
 
-    return new Promise((resolve, reject) =>
-      webpack(
-        webpackConfigs.length === 1 ? webpackConfigs[0] : webpackConfigs
-      ).run((error, stats) => {
-        if (error) {
-          reject(error);
-        } else if (stats.hasErrors()) {
-          const { errors } = stats.toJson({ all: false, errors: true });
-          reject(new Error(`Build failed with ${errors.length} error(s)`));
-        } else {
-          resolve(stats);
-        }
-      })
-    ).then((stats) => {
-      this.inspectBuild(stats, webpackConfigs);
-      return stats;
-    });
+    return Promise.all([
+      createChildCompiler(['build'], options, overrides).then(this.inspectBuild),
+      createChildCompiler(['node'], options, overrides).then(this.inspectBuild),
+    ]);
   }
 
   inspectBuild(stats) {
-    debug(
-      stats.toString({ chunks: false, modules: false, entrypoints: false })
-    );
+    debug(stats);
   }
 
   registerCommands(yargs) {
